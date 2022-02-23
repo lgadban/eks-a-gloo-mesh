@@ -1,0 +1,11 @@
+apiVersion: admin.gloo.solo.io/v2
+kind: RootTrustPolicy
+metadata:
+  name: self-signed
+  namespace: gloo-mesh
+spec:
+  config:
+    autoRestartPods: true
+    mgmtServerCa:
+      generated: {}
+

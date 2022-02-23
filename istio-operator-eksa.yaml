@@ -1,0 +1,69 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: control-plane
+  namespace: istio-system
+spec:
+  # only control plane (https://istio.io/latest/docs/setup/additional-setup/config-profiles/)
+  profile: minimal
+  meshConfig:
+    accessLogFile: /dev/stdout
+    defaultConfig:
+      holdApplicationUntilProxyStarts: true
+      envoyMetricsService:
+        address: gloo-mesh-agent.gloo-mesh:9977   # enable Gloo Mesh metrics service
+      envoyAccessLogService:
+        address: gloo-mesh-agent.gloo-mesh:9977   # enable GlooMesh accesslog service
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+        ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+        # used for gloo mesh metrics aggregation
+        # should match trustDomain (required for Gloo Mesh Dashboard)
+        GLOO_MESH_CLUSTER_NAME: ${CLUSTER_NAME}
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    trustDomain: ${CLUSTER_NAME}
+  values:
+    global:
+      meshID: mesh1
+      network: network1
+      # needed for annotating istio metrics with cluster (should match trust domain and GLOO_MESH_CLUSTER_NAME)
+      multiCluster:
+        clusterName: ${CLUSTER_NAME}
+      proxy:
+        readinessPeriodSeconds: 120
+  components:
+    pilot:
+      k8s:
+        env:
+          - name: PILOT_SKIP_VALIDATE_TRUST_DOMAIN
+            value: "true"
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      label:
+        cluster: ${CLUSTER_NAME}    # temporarily used for selection on the VirtualGateway
+      k8s:
+        service:
+          type: NodePort  # not using e.g. MetalLB on eks-a, NodePort other supported type
+    - name: istio-eastwestgateway
+      enabled: true
+      label:
+        istio: eastwestgateway
+        topology.istio.io/network: network1
+      k8s:
+        env:
+          - name: ISTIO_META_ROUTER_MODE    # Required by Gloo Mesh for east/west routing
+            value: sni-dnat
+          - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+            value: network1
+        service:
+          type: NodePort
+          ports:
+            - name: status-port
+              port: 15021
+              targetPort: 15021
+            - name: tls           # gloo mesh looks for port named 'tls'
+              port: 15443
+              targetPort: 15443   # gloo-mesh multi-cluster mTLS passthrough (east/west routing)
+

@@ -1,0 +1,36 @@
+apiVersion: networking.gloo.solo.io/v2
+kind: VirtualDestination
+metadata:
+  name: ratings-global
+  namespace: default
+spec:
+  hosts:
+    - 'ratings.global'
+  services:
+  - labels:
+      app: ratings
+    cluster: cloud
+  ports:
+  - number: 9080
+    name: http
+    protocol: TCP
+---
+apiVersion: networking.gloo.solo.io/v2
+kind: RouteTable
+metadata:
+  name: shift-ratings-global
+  namespace: default
+spec:
+  hosts:
+  - ratings.default.svc.cluster.local
+  http:
+  - name: shift-ratings-global
+    forwardTo:
+      destinations:
+      - ref:
+          name: ratings-global
+          namespace: default
+        kind: VirtualDestination
+        port:
+          number: 9080
+

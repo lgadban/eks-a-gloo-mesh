@@ -1,0 +1,39 @@
+apiVersion: networking.gloo.solo.io/v2
+kind: VirtualGateway
+metadata:
+  name: bookinfo-gateway
+  namespace: default
+  labels:
+    workspace.solo.io/exported: 'true'
+spec:
+  workloads:
+  - selector:
+      cluster: eksa
+  listeners:
+  - port:
+      number: 80
+    http: {}
+---
+apiVersion: networking.gloo.solo.io/v2
+kind: RouteTable
+metadata:
+  name: bookinfo-routes
+  namespace: default
+spec:
+  hosts:
+    - "*"
+  virtualGateways:
+  - name: bookinfo-gateway
+    namespace: default
+  http:
+  - name: productpage
+    forwardTo:
+      destinations:
+      - ref:
+          name: productpage
+          namespace: default
+          cluster: eksa
+        port:
+          number: 9080
+
+
